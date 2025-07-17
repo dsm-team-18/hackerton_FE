@@ -1,6 +1,6 @@
 {
-  "/discussions/page": "app/discussions/page.js",
   "/page": "app/page.js",
-  "/discussion/[id]/page": "app/discussion/[id]/page.js",
-  "/create/page": "app/create/page.js"
+  "/discussions/page": "app/discussions/page.js",
+  "/create/page": "app/create/page.js",
+  "/discussion/[id]/page": "app/discussion/[id]/page.js"
 }

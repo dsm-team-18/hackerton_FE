@@ -1,157 +1,67 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, MessageCircle, Vote, Users, Loader2, RefreshCw } from "lucide-react"
+import { Search, Plus, MessageCircle, Vote, Users } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import apiWithTransform from "@/lib/api" // API 파일 경로에 맞게 수정
+
+
+const mockDiscussions = [
+  {
+    id: 1,
+    title: "프랑스 혁명은 정당한 혁명이었는가?",
+    description: "1789년 프랑스 혁명의 정당성과 그 결과에 대해 토론해봅시다.",
+    author: "역사학도",
+    createdAt: "2024-01-15",
+    category: "근세사",
+    comments: 18,
+    likes: 24,
+    participants: 12,
+    votes: { agree: 15, disagree: 9 },
+  },
+  {
+    id: 2,
+    title: "조선의 쇄국정책, 옳은 선택이었을까?",
+    description: "조선 후기 쇄국정책의 배경과 그 영향에 대한 다양한 관점을 나누어봅시다.",
+    author: "한국사연구자",
+    createdAt: "2024-01-14",
+    category: "조선사",
+    comments: 12,
+    likes: 31,
+    participants: 18,
+    votes: { agree: 12, disagree: 19 },
+  },
+  {
+    id: 3,
+    title: "콜럼버스의 아메리카 발견, 발견인가 침략인가?",
+    description: "1492년 콜럼버스의 아메리카 대륙 도달에 대한 역사적 평가를 논의해봅시다.",
+    author: "세계사탐구",
+    createdAt: "2024-01-13",
+    category: "세계사",
+    comments: 9,
+    likes: 30,
+    participants: 15,
+    votes: { agree: 8, disagree: 22 },
+  },
+]
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("전체")
-  const [discussions, setDiscussions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
-  const categories = ["전체", "고대사", "중세사", "근세사", "근현대사", "조선사", "세계사", "일반"]
+  const categories = ["전체", "고대사", "중세사", "근세사", "근현대사", "조선사", "세계사"]
 
-  // API에서 토론 데이터 가져오기
-  const fetchDiscussions = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const data = await apiWithTransform.getDiscussions()
-      setDiscussions(data)
-    } catch (err) {
-      console.error('Failed to fetch discussions:', err)
-      setError(err.message || '토론 목록을 불러오는데 실패했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchDiscussions()
-  }, [])
-
-  // 수동 새로고침 함수
-  const handleRefresh = () => {
-    fetchDiscussions()
-  }
-
-  // 검색어와 카테고리에 따른 필터링
-  const filteredDiscussions = discussions.filter((discussion) => {
+  const filteredDiscussions = mockDiscussions.filter((discussion) => {
     const matchesSearch =
       discussion.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       discussion.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "전체" || discussion.category === selectedCategory
     return matchesSearch && matchesCategory
   })
-
-  // 로딩 상태 표시
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-wine-50 to-brick-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-wine-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Image 
-                  src="/Logo.svg" 
-                  alt="Agora Logo" 
-                  width={32} 
-                  height={32}
-                />
-                <Link href="/">
-                  <h1 className="text-2xl font-bold text-wine-800 cursor-pointer">Agora</h1>
-                </Link>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button 
-                  onClick={handleRefresh} 
-                  variant="outline"
-                  size="sm"
-                  disabled={loading}
-                  className="border-wine-200 text-wine-600 hover:bg-wine-50"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  새로고침
-                </Button>
-                <Link href="/create">
-                  <Button className="bg-wine-600 hover:bg-wine-700 text-white">
-                    <Plus className="w-4 h-4 mr-2" />새 토론 시작
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Loading Spinner */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex justify-center items-center h-64">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-wine-600" />
-              <span className="text-wine-600">토론 목록을 불러오는 중...</span>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  // 에러 상태 표시
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-wine-50 to-brick-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-wine-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Image 
-                  src="/Logo.svg" 
-                  alt="Agora Logo" 
-                  width={32} 
-                  height={32}
-                />
-                <Link href="/">
-                  <h1 className="text-2xl font-bold text-wine-800 cursor-pointer">Agora</h1>
-                </Link>
-              </div>
-              <Link href="/create">
-                <Button className="bg-wine-600 hover:bg-wine-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />새 토론 시작
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Error Display */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-12">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-              <p className="text-red-600 text-lg font-medium">오류가 발생했습니다</p>
-              <p className="text-red-500 mt-2">{error}</p>
-              <Button 
-                onClick={handleRefresh} 
-                className="mt-4 bg-wine-600 hover:bg-wine-700 text-white"
-              >
-                다시 시도
-              </Button>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-wine-50 to-brick-50">
@@ -160,33 +70,21 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Image 
-                src="/Logo.svg" 
-                alt="Agora Logo" 
-                width={32} 
-                height={32}
-              />
+            <Image 
+                  src="/Logo.svg" 
+                  alt="Agora Logo" 
+                  width={32} 
+                  height={32}
+                />
               <Link href="/">
                 <h1 className="text-2xl font-bold text-wine-800 cursor-pointer">Agora</h1>
               </Link>
             </div>
-            <div className="flex items-center gap-3">
-              <Button 
-                onClick={handleRefresh} 
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                className="border-wine-200 text-wine-600 hover:bg-wine-50"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                새로고침
+            <Link href="/create">
+              <Button className="bg-wine-600 hover:bg-wine-700 text-white">
+                <Plus className="w-4 h-4 mr-2" />새 토론 시작
               </Button>
-              <Link href="/create">
-                <Button className="bg-wine-600 hover:bg-wine-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />새 토론 시작
-                </Button>
-              </Link>
-            </div>
+            </Link>
           </div>
         </div>
       </header>
@@ -204,25 +102,6 @@ export default function HomePage() {
                 className="pl-10 border-wine-200 focus:border-wine-400"
               />
             </div>
-          </div>
-
-          {/* Category Filter */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className={
-                  selectedCategory === category
-                    ? "bg-wine-600 hover:bg-wine-700 text-white"
-                    : "border-wine-200 text-wine-600 hover:bg-wine-50"
-                }
-              >
-                {category}
-              </Button>
-            ))}
           </div>
         </div>
 
@@ -260,10 +139,6 @@ export default function HomePage() {
                       <Vote className="w-4 h-4" />
                       <span>{discussion.likes}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <Users className="w-4 h-4" />
-                      <span>{discussion.participants}</span>
-                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-sm">
@@ -278,26 +153,10 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Empty State */}
-        {filteredDiscussions.length === 0 && !loading && (
+        {filteredDiscussions.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
-              {searchTerm || selectedCategory !== "전체" 
-                ? "검색 결과가 없습니다." 
-                : "아직 토론이 없습니다."}
-            </p>
-            <p className="text-gray-400 mt-2">
-              {searchTerm || selectedCategory !== "전체"
-                ? "다른 키워드로 검색해보세요."
-                : "첫 번째 토론을 시작해보세요!"}
-            </p>
-            {(!searchTerm && selectedCategory === "전체") && (
-              <Link href="/create">
-                <Button className="mt-4 bg-wine-600 hover:bg-wine-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />새 토론 시작
-                </Button>
-              </Link>
-            )}
+            <p className="text-gray-500 text-lg">검색 결과가 없습니다.</p>
+            <p className="text-gray-400 mt-2">다른 키워드로 검색해보세요.</p>
           </div>
         )}
       </main>
