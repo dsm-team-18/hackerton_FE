@@ -146,7 +146,7 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
       }
       
       // voteCounts가 없는 경우 처리
-      if (!result.voteCounts) {
+      if (!(result.votes.agree + result.votes.disagree)) {
         console.warn('voteCounts가 응답에 없습니다. 기본값 사용')
         // 현재 상태를 기반으로 수동 계산
         const currentCounts = discussion.voteCounts || { agree: 0, disagree: 0 }
@@ -171,9 +171,9 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
       }
       
       // 안전한 데이터 추출
-      const voteCounts = result.voteCounts
-      const agreeCount = typeof voteCounts.agree === 'number' ? voteCounts.agree : 0
-      const disagreeCount = typeof voteCounts.disagree === 'number' ? voteCounts.disagree : 0
+      const voteCounts = result.votes.agree + result.votes.disagree
+      const agreeCount = typeof result.votes.agree === 'number' ? result.votes.agree : 0
+      const disagreeCount = typeof result.votes.disagree === 'number' ? result.votes.disagree : 0
       const userVote = ['agree', 'disagree'].includes(result.userVote) ? result.userVote : vote
       
       console.log('추출된 데이터:', { agreeCount, disagreeCount, userVote })
@@ -252,12 +252,12 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
       const result = await api.voteDiscussion(resolvedParams.id, vote)
       
       // 서버 응답으로 동기화 (성공 시)
-      if (result && result.voteCounts) {
+      if (result && result.votes.agree + result.votes.disagree) {
         setDiscussion(prev => prev ? {
           ...prev,
           voteCounts: {
-            agree: result.voteCounts.agree || 0,
-            disagree: result.voteCounts.disagree || 0
+            agree: result.votes.agree || 0,
+            disagree: result.votes.disagree || 0
           },
           userVote: result.userVote || vote
         } : null)
