@@ -316,40 +316,6 @@ export default function CreateDiscussionPage() {
               </Alert>
             )}
 
-            {/* 테스트 버튼들 */}
-            <div className="mb-6 flex gap-4 flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleTestPost}
-                disabled={isSubmitting}
-                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-              >
-                <TestTube className="w-4 h-4 mr-2" />
-                현재 폼 값으로 테스트
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCorsDebug}
-                disabled={isSubmitting}
-                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-              >
-                <Bug className="w-4 h-4 mr-2" />
-                CORS 디버깅
-              </Button>
-            </div>
-            
-            <div className="mb-6 text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">🔍 디버깅 가이드:</h3>
-              <ul className="space-y-1">
-                <li>• <strong>현재 폼 값으로 테스트</strong>: 폼에 입력한 값 그대로 테스트 (빈 값은 기본값 사용)</li>
-                <li>• <strong>CORS 디버깅</strong>: OPTIONS 요청과 CORS 헤더를 상세히 확인</li>
-                <li>• 모든 결과는 개발자 도구 콘솔에서 확인할 수 있습니다 (F12)</li>
-                <li>• 실제 제출과 동일한 데이터 형식으로 테스트합니다</li>
-              </ul>
-            </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
