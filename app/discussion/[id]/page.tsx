@@ -13,14 +13,12 @@ import {
   ThumbsDown,
   MessageCircle,
   Vote,
-  Users,
   Send,
   Heart,
   Flag,
-  Users as UsersIcon,
 } from "lucide-react"
 import Link from "next/link"
-import api from "../../api" // API 함수들 import
+import api from "@/lib/api" // API 함수들 import
 
 // 타입 정의
 interface Discussion {
@@ -31,7 +29,6 @@ interface Discussion {
   createdAt: string
   category: string
   voteCounts: { agree: number; disagree: number }
-  visitorsCount: number
   userVote?: 'agree' | 'disagree' | null
 }
 
@@ -72,13 +69,6 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
         setLoading(true)
         setError(null)
         
-        // 방문자 수 증가
-        try {
-          await api.incrementVisitor(resolvedParams.id)
-        } catch (err) {
-          console.warn('방문자 수 증가 실패:', err)
-        }
-        
         // 토론 상세 정보 가져오기
         const discussionData = await api.getDiscussion(resolvedParams.id)
         setDiscussion(discussionData)
@@ -98,33 +88,211 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
     loadData()
   }, [resolvedParams.id])
 
-  // 투표 처리
-  const handleVote = async (vote: "agree" | "disagree") => {
-    if (!discussion || isVoting) return
+// 기존의 handleVote 함수를 위의 개선된 버전으로 교체
+// 투표 처리 - 디버깅 강화 및 문제 해결
+const handleVote = async (vote: "agree" | "disagree") => {
+  if (!discussion || isVoting) return
 
-    try {
-      setIsVoting(true)
-      setError(null)
+  console.log('투표 시작:', { vote, currentVotes: discussion.voteCounts, userVote: discussion.userVote })
+
+  try {
+    setIsVoting(true)
+    setError(null)
+    
+    // API 호출
+    console.log('API 호출 중...', { discussionId: resolvedParams.id, vote })
+    const result = await api.voteDiscussion(resolvedParams.id, vote)
+    
+    console.log('API 응답:', result)
+    
+    // 응답이 없는 경우
+    if (!result) {
+      console.error('API 응답이 없습니다.')
+      throw new Error('서버로부터 응답을 받지 못했습니다.')
+    }
+    
+    // 응답이 객체가 아닌 경우
+    if (typeof result !== 'object') {
+      console.error('잘못된 응답 타입:', typeof result, result)
+      throw new Error('서버 응답 형식이 올바르지 않습니다.')
+    }
+    
+    // voteCounts가 없는 경우 처리
+    if (!result.voteCounts) {
+      console.warn('voteCounts가 응답에 없습니다. 기본값 사용')
+      // 현재 상태를 기반으로 수동 계산
+      const currentCounts = discussion.voteCounts || { agree: 0, disagree: 0 }
+      const newCounts = { ...currentCounts }
       
-      // API 호출
-      const result = await api.voteDiscussion(resolvedParams.id, vote)
+      // 이전 투표 취소
+      if (discussion.userVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
+      if (discussion.userVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
       
-      // 상태 업데이트
+      // 새 투표 추가
+      if (vote === 'agree') newCounts.agree += 1
+      if (vote === 'disagree') newCounts.disagree += 1
+      
       setDiscussion(prev => prev ? {
         ...prev,
-        voteCounts: result.voteCounts,
-        userVote: result.userVote
+        voteCounts: newCounts,
+        userVote: vote
       } : null)
       
-    } catch (err) {
-      console.error('투표 실패:', err)
-      setError(err instanceof Error ? err.message : '투표에 실패했습니다.')
-    } finally {
-      setIsVoting(false)
+      console.log('수동 계산된 투표 수:', newCounts)
+      return
     }
+    
+    // 안전한 데이터 추출
+    const voteCounts = result.voteCounts
+    const agreeCount = typeof voteCounts.agree === 'number' ? voteCounts.agree : 0
+    const disagreeCount = typeof voteCounts.disagree === 'number' ? voteCounts.disagree : 0
+    const userVote = ['agree', 'disagree'].includes(result.userVote) ? result.userVote : vote
+    
+    console.log('추출된 데이터:', { agreeCount, disagreeCount, userVote })
+    
+    // 상태 업데이트
+    setDiscussion(prev => {
+      if (!prev) return null
+      
+      const updated = {
+        ...prev,
+        voteCounts: {
+          agree: agreeCount,
+          disagree: disagreeCount
+        },
+        userVote: userVote
+      }
+      
+      console.log('상태 업데이트:', { 
+        이전: prev.voteCounts, 
+        새로운: updated.voteCounts,
+        userVote: updated.userVote
+      })
+      
+      return updated
+    })
+    
+  } catch (err) {
+    console.error('투표 실패:', err)
+    
+    let errorMessage = '투표에 실패했습니다.'
+    
+    if (err instanceof Error) {
+      errorMessage = err.message
+    }
+    
+    setError(errorMessage)
+    
+  } finally {
+    setIsVoting(false)
   }
+}
 
-  // 댓글 작성 처리
+// API 함수 확인용 (api.js 파일에서 확인해야 할 내용)
+/*
+// api.js에서 voteDiscussion 함수가 이런 형태인지 확인
+export const voteDiscussion = async (discussionId, vote) => {
+  try {
+    const response = await fetch(`/api/discussions/${discussionId}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ vote })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    console.log('API 응답 데이터:', data) // 디버깅용
+    
+    return data
+  } catch (error) {
+    console.error('API 호출 에러:', error)
+    throw error
+  }
+}
+*/
+
+// 임시 해결방안: 낙관적 업데이트 사용
+const handleVoteWithOptimisticUpdate = async (vote: "agree" | "disagree") => {
+  if (!discussion || isVoting) return
+
+  const previousVote = discussion.userVote
+  const previousCounts = { ...discussion.voteCounts }
+  
+  try {
+    setIsVoting(true)
+    setError(null)
+    
+    // 즉시 UI 업데이트 (낙관적 업데이트)
+    setDiscussion(prev => {
+      if (!prev) return null
+      
+      const newCounts = { ...prev.voteCounts }
+      
+      // 이전 투표 취소
+      if (previousVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
+      if (previousVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
+      
+      // 새 투표 적용
+      if (vote === 'agree') newCounts.agree += 1
+      if (vote === 'disagree') newCounts.disagree += 1
+      
+      return {
+        ...prev,
+        voteCounts: newCounts,
+        userVote: vote
+      }
+    })
+    
+    // 백그라운드에서 API 호출
+    const result = await api.voteDiscussion(resolvedParams.id, vote)
+    
+    // 서버 응답으로 동기화 (성공 시)
+    if (result && result.voteCounts) {
+      setDiscussion(prev => prev ? {
+        ...prev,
+        voteCounts: {
+          agree: result.voteCounts.agree || 0,
+          disagree: result.voteCounts.disagree || 0
+        },
+        userVote: result.userVote || vote
+      } : null)
+    }
+    
+  } catch (err) {
+    console.error('투표 실패:', err)
+    
+    // 실패 시 이전 상태로 롤백
+    setDiscussion(prev => prev ? {
+      ...prev,
+      voteCounts: previousCounts,
+      userVote: previousVote
+    } : null)
+    
+    setError('투표에 실패했습니다.')
+    
+  } finally {
+    setIsVoting(false)
+  }
+}
+
+// 투표 수 계산 함수들 (렌더링 부분에서 사용)
+const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => {
+  const totalVotes = (voteCounts?.agree || 0) + (voteCounts?.disagree || 0)
+  const agreeRate = totalVotes > 0 ? Math.round(((voteCounts?.agree || 0) / totalVotes) * 100) : 0
+  const disagreeRate = totalVotes > 0 ? Math.round(((voteCounts?.disagree || 0) / totalVotes) * 100) : 0
+  
+  return { totalVotes, agreeRate, disagreeRate }
+}
+
+// 사용 예시:
+// const { totalVotes, agreeRate, disagreeRate } = calculateVoteStats(discussion.voteCounts)
+
+  // 댓글 작성 처리 - 에러 핸들링 강화
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !discussion || isSubmitting) return
     
@@ -158,6 +326,11 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
       // 댓글 작성 API 호출
       const newCommentResponse = await api.createComment(resolvedParams.id, commentData)
       
+      // 응답 검증
+      if (!newCommentResponse) {
+        throw new Error('댓글 작성에 실패했습니다.')
+      }
+      
       // 댓글 목록 다시 불러오기
       const updatedComments = await api.getComments(resolvedParams.id)
       setComments(updatedComments)
@@ -171,19 +344,28 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
       
     } catch (err) {
       console.error('댓글 작성 실패:', err)
-      setError(err instanceof Error ? err.message : '댓글 작성에 실패했습니다.')
+      
+      let errorMessage = '댓글 작성에 실패했습니다.'
+      
+      if (err instanceof SyntaxError && err.message.includes('JSON')) {
+        errorMessage = '서버 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.'
+      } else if (err instanceof Error) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // 댓글 좋아요 처리
+  // 댓글 좋아요 처리 - 에러 핸들링 강화
   const handleCommentLike = async (commentId: number) => {
     try {
       setError(null)
       
-      // API 호출
-      await api.toggleCommentLike(commentId)
+      // 낙관적 업데이트를 위한 이전 상태 저장
+      const previousComments = [...comments]
       
       // 로컬 상태 업데이트 (낙관적 업데이트)
       setComments(prev => prev.map(comment => 
@@ -196,9 +378,45 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
           : comment
       ))
       
+      // API 호출
+      const result = await api.toggleCommentLike(commentId)
+      
+      // API 응답에 따른 상태 동기화 (필요시)
+      if (result && typeof result === 'object' && 'likes' in result) {
+        setComments(prev => prev.map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                likes: result.likes,
+                isLiked: result.isLiked
+              }
+            : comment
+        ))
+      }
+      
     } catch (err) {
       console.error('좋아요 처리 실패:', err)
-      setError(err instanceof Error ? err.message : '좋아요 처리에 실패했습니다.')
+      
+      // 에러 발생 시 이전 상태로 롤백
+      setComments(prev => prev.map(comment => 
+        comment.id === commentId 
+          ? { 
+              ...comment, 
+              likes: comment.isLiked ? comment.likes + 1 : comment.likes - 1,
+              isLiked: !comment.isLiked
+            }
+          : comment
+      ))
+      
+      let errorMessage = '좋아요 처리에 실패했습니다.'
+      
+      if (err instanceof SyntaxError && err.message.includes('JSON')) {
+        errorMessage = '서버 응답 형식이 올바르지 않습니다.'
+      } else if (err instanceof Error) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     }
   }
 
@@ -242,9 +460,9 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const totalVotes = discussion.voteCounts.agree + discussion.voteCounts.disagree
-  const agreeRate = totalVotes > 0 ? Math.round((discussion.voteCounts.agree / totalVotes) * 100) : 0
-  const disagreeRate = totalVotes > 0 ? Math.round((discussion.voteCounts.disagree / totalVotes) * 100) : 0
+  const totalVotes = (discussion.voteCounts?.agree || 0) + (discussion.voteCounts?.disagree || 0)
+  const agreeRate = totalVotes > 0 ? Math.round(((discussion.voteCounts?.agree || 0) / totalVotes) * 100) : 0
+  const disagreeRate = totalVotes > 0 ? Math.round(((discussion.voteCounts?.disagree || 0) / totalVotes) * 100) : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-wine-50 to-brick-50">
@@ -265,6 +483,14 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
             <p className="text-red-600 text-sm">{error}</p>
+            <Button 
+              onClick={() => setError(null)} 
+              variant="ghost" 
+              size="sm" 
+              className="mt-2 text-red-600 hover:text-red-700"
+            >
+              닫기
+            </Button>
           </div>
         )}
 
@@ -283,7 +509,6 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
           <CardContent className="flex gap-6 text-gray-600">
             <div className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{comments.length}</div>
             <div className="flex items-center gap-1"><Vote className="w-4 h-4" />{totalVotes}</div>
-            <div className="flex items-center gap-1"><Users className="w-4 h-4" />{discussion.visitorsCount}</div>
           </CardContent>
         </Card>
 
@@ -299,7 +524,7 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
                 disabled={isVoting}
               >
                 <ThumbsUp className="w-4 h-4 mr-2" />
-                찬성 ({discussion.voteCounts.agree})
+                {isVoting ? "투표 중..." : `찬성 (${discussion.voteCounts?.agree || 0})`}
               </Button>
               <Button
                 variant={discussion.userVote === "disagree" ? "default" : "outline"}
@@ -308,7 +533,7 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
                 disabled={isVoting}
               >
                 <ThumbsDown className="w-4 h-4 mr-2" />
-                반대 ({discussion.voteCounts.disagree})
+                {isVoting ? "투표 중..." : `반대 (${discussion.voteCounts?.disagree || 0})`}
               </Button>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 flex overflow-hidden">
