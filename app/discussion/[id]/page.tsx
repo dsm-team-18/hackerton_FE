@@ -69,16 +69,45 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
         setLoading(true)
         setError(null)
         
-        // 토론 상세 정보 가져오기
+        // 토론 상세 정보 가져오기 (API 호출)
         const discussionData = await api.getDiscussion(resolvedParams.id)
-        setDiscussion(discussionData)
         
-        // 댓글 목록 가져오기
+        // 초기 투표 비율을 6:4로 설정 (총 100표 기준)
+        const initialDiscussionData = {
+          ...discussionData,
+          voteCounts: {
+            agree: 60,
+            disagree: 40
+          }
+        }
+        
+        setDiscussion(initialDiscussionData)
+        
+        // 댓글 목록 가져오기 (API 호출)
         const commentsData = await api.getComments(resolvedParams.id)
         setComments(commentsData)
         
       } catch (err) {
         console.error('데이터 로드 실패:', err)
+        
+        // API 호출 실패 시 더미 데이터 사용
+        const dummyDiscussion: Discussion = {
+          id: resolvedParams.id,
+          title: "샘플 토론 주제",
+          description: "이것은 샘플 토론 주제입니다.",
+          author: "관리자",
+          createdAt: new Date().toLocaleDateString(),
+          category: "일반",
+          voteCounts: {
+            agree: 60,
+            disagree: 40
+          },
+          userVote: null
+        }
+        
+        setDiscussion(dummyDiscussion)
+        setComments([])
+        
         setError(err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
@@ -88,211 +117,179 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
     loadData()
   }, [resolvedParams.id])
 
-// 기존의 handleVote 함수를 위의 개선된 버전으로 교체
-// 투표 처리 - 디버깅 강화 및 문제 해결
-const handleVote = async (vote: "agree" | "disagree") => {
-  if (!discussion || isVoting) return
+  // 투표 처리 - 디버깅 강화 및 문제 해결
+  const handleVote = async (vote: "agree" | "disagree") => {
+    if (!discussion || isVoting) return
 
-  console.log('투표 시작:', { vote, currentVotes: discussion.voteCounts, userVote: discussion.userVote })
+    console.log('투표 시작:', { vote, currentVotes: discussion.voteCounts, userVote: discussion.userVote })
 
-  try {
-    setIsVoting(true)
-    setError(null)
-    
-    // API 호출
-    console.log('API 호출 중...', { discussionId: resolvedParams.id, vote })
-    const result = await api.voteDiscussion(resolvedParams.id, vote)
-    
-    console.log('API 응답:', result)
-    
-    // 응답이 없는 경우
-    if (!result) {
-      console.error('API 응답이 없습니다.')
-      throw new Error('서버로부터 응답을 받지 못했습니다.')
-    }
-    
-    // 응답이 객체가 아닌 경우
-    if (typeof result !== 'object') {
-      console.error('잘못된 응답 타입:', typeof result, result)
-      throw new Error('서버 응답 형식이 올바르지 않습니다.')
-    }
-    
-    // voteCounts가 없는 경우 처리
-    if (!result.voteCounts) {
-      console.warn('voteCounts가 응답에 없습니다. 기본값 사용')
-      // 현재 상태를 기반으로 수동 계산
-      const currentCounts = discussion.voteCounts || { agree: 0, disagree: 0 }
-      const newCounts = { ...currentCounts }
+    try {
+      setIsVoting(true)
+      setError(null)
       
-      // 이전 투표 취소
-      if (discussion.userVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
-      if (discussion.userVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
+      // API 호출
+      console.log('API 호출 중...', { discussionId: resolvedParams.id, vote })
+      const result = await api.voteDiscussion(resolvedParams.id, vote)
       
-      // 새 투표 추가
-      if (vote === 'agree') newCounts.agree += 1
-      if (vote === 'disagree') newCounts.disagree += 1
+      console.log('API 응답:', result)
       
-      setDiscussion(prev => prev ? {
-        ...prev,
-        voteCounts: newCounts,
-        userVote: vote
-      } : null)
-      
-      console.log('수동 계산된 투표 수:', newCounts)
-      return
-    }
-    
-    // 안전한 데이터 추출
-    const voteCounts = result.voteCounts
-    const agreeCount = typeof voteCounts.agree === 'number' ? voteCounts.agree : 0
-    const disagreeCount = typeof voteCounts.disagree === 'number' ? voteCounts.disagree : 0
-    const userVote = ['agree', 'disagree'].includes(result.userVote) ? result.userVote : vote
-    
-    console.log('추출된 데이터:', { agreeCount, disagreeCount, userVote })
-    
-    // 상태 업데이트
-    setDiscussion(prev => {
-      if (!prev) return null
-      
-      const updated = {
-        ...prev,
-        voteCounts: {
-          agree: agreeCount,
-          disagree: disagreeCount
-        },
-        userVote: userVote
+      // 응답이 없는 경우
+      if (!result) {
+        console.error('API 응답이 없습니다.')
+        throw new Error('서버로부터 응답을 받지 못했습니다.')
       }
       
-      console.log('상태 업데이트:', { 
-        이전: prev.voteCounts, 
-        새로운: updated.voteCounts,
-        userVote: updated.userVote
+      // 응답이 객체가 아닌 경우
+      if (typeof result !== 'object') {
+        console.error('잘못된 응답 타입:', typeof result, result)
+        throw new Error('서버 응답 형식이 올바르지 않습니다.')
+      }
+      
+      // voteCounts가 없는 경우 처리
+      if (!result.voteCounts) {
+        console.warn('voteCounts가 응답에 없습니다. 기본값 사용')
+        // 현재 상태를 기반으로 수동 계산
+        const currentCounts = discussion.voteCounts || { agree: 0, disagree: 0 }
+        const newCounts = { ...currentCounts }
+        
+        // 이전 투표 취소
+        if (discussion.userVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
+        if (discussion.userVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
+        
+        // 새 투표 추가
+        if (vote === 'agree') newCounts.agree += 1
+        if (vote === 'disagree') newCounts.disagree += 1
+        
+        setDiscussion(prev => prev ? {
+          ...prev,
+          voteCounts: newCounts,
+          userVote: vote
+        } : null)
+        
+        console.log('수동 계산된 투표 수:', newCounts)
+        return
+      }
+      
+      // 안전한 데이터 추출
+      const voteCounts = result.voteCounts
+      const agreeCount = typeof voteCounts.agree === 'number' ? voteCounts.agree : 0
+      const disagreeCount = typeof voteCounts.disagree === 'number' ? voteCounts.disagree : 0
+      const userVote = ['agree', 'disagree'].includes(result.userVote) ? result.userVote : vote
+      
+      console.log('추출된 데이터:', { agreeCount, disagreeCount, userVote })
+      
+      // 상태 업데이트
+      setDiscussion(prev => {
+        if (!prev) return null
+        
+        const updated = {
+          ...prev,
+          voteCounts: {
+            agree: agreeCount,
+            disagree: disagreeCount
+          },
+          userVote: userVote
+        }
+        
+        console.log('상태 업데이트:', { 
+          이전: prev.voteCounts, 
+          새로운: updated.voteCounts,
+          userVote: updated.userVote
+        })
+        
+        return updated
       })
       
-      return updated
-    })
-    
-  } catch (err) {
-    console.error('투표 실패:', err)
-    
-    let errorMessage = '투표에 실패했습니다.'
-    
-    if (err instanceof Error) {
-      errorMessage = err.message
-    }
-    
-    setError(errorMessage)
-    
-  } finally {
-    setIsVoting(false)
-  }
-}
-
-// API 함수 확인용 (api.js 파일에서 확인해야 할 내용)
-/*
-// api.js에서 voteDiscussion 함수가 이런 형태인지 확인
-export const voteDiscussion = async (discussionId, vote) => {
-  try {
-    const response = await fetch(`/api/discussions/${discussionId}/vote`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ vote })
-    })
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    console.log('API 응답 데이터:', data) // 디버깅용
-    
-    return data
-  } catch (error) {
-    console.error('API 호출 에러:', error)
-    throw error
-  }
-}
-*/
-
-// 임시 해결방안: 낙관적 업데이트 사용
-const handleVoteWithOptimisticUpdate = async (vote: "agree" | "disagree") => {
-  if (!discussion || isVoting) return
-
-  const previousVote = discussion.userVote
-  const previousCounts = { ...discussion.voteCounts }
-  
-  try {
-    setIsVoting(true)
-    setError(null)
-    
-    // 즉시 UI 업데이트 (낙관적 업데이트)
-    setDiscussion(prev => {
-      if (!prev) return null
+    } catch (err) {
+      console.error('투표 실패:', err)
       
-      const newCounts = { ...prev.voteCounts }
+      let errorMessage = '투표에 실패했습니다.'
       
-      // 이전 투표 취소
-      if (previousVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
-      if (previousVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
-      
-      // 새 투표 적용
-      if (vote === 'agree') newCounts.agree += 1
-      if (vote === 'disagree') newCounts.disagree += 1
-      
-      return {
-        ...prev,
-        voteCounts: newCounts,
-        userVote: vote
+      if (err instanceof Error) {
+        errorMessage = err.message
       }
-    })
+      
+      setError(errorMessage)
+      
+    } finally {
+      setIsVoting(false)
+    }
+  }
+
+  // 임시 해결방안: 낙관적 업데이트 사용
+  const handleVoteWithOptimisticUpdate = async (vote: "agree" | "disagree") => {
+    if (!discussion || isVoting) return
+
+    const previousVote = discussion.userVote
+    const previousCounts = { ...discussion.voteCounts }
     
-    // 백그라운드에서 API 호출
-    const result = await api.voteDiscussion(resolvedParams.id, vote)
-    
-    // 서버 응답으로 동기화 (성공 시)
-    if (result && result.voteCounts) {
+    try {
+      setIsVoting(true)
+      setError(null)
+      
+      // 즉시 UI 업데이트 (낙관적 업데이트)
+      setDiscussion(prev => {
+        if (!prev) return null
+        
+        const newCounts = { ...prev.voteCounts }
+        
+        // 이전 투표 취소
+        if (previousVote === 'agree') newCounts.agree = Math.max(0, newCounts.agree - 1)
+        if (previousVote === 'disagree') newCounts.disagree = Math.max(0, newCounts.disagree - 1)
+        
+        // 새 투표 적용
+        if (vote === 'agree') newCounts.agree += 1
+        if (vote === 'disagree') newCounts.disagree += 1
+        
+        return {
+          ...prev,
+          voteCounts: newCounts,
+          userVote: vote
+        }
+      })
+      
+      // 백그라운드에서 API 호출
+      const result = await api.voteDiscussion(resolvedParams.id, vote)
+      
+      // 서버 응답으로 동기화 (성공 시)
+      if (result && result.voteCounts) {
+        setDiscussion(prev => prev ? {
+          ...prev,
+          voteCounts: {
+            agree: result.voteCounts.agree || 0,
+            disagree: result.voteCounts.disagree || 0
+          },
+          userVote: result.userVote || vote
+        } : null)
+      }
+      
+    } catch (err) {
+      console.error('투표 실패:', err)
+      
+      // 실패 시 이전 상태로 롤백
       setDiscussion(prev => prev ? {
         ...prev,
-        voteCounts: {
-          agree: result.voteCounts.agree || 0,
-          disagree: result.voteCounts.disagree || 0
-        },
-        userVote: result.userVote || vote
+        voteCounts: previousCounts,
+        userVote: previousVote
       } : null)
+      
+      setError('투표에 실패했습니다.')
+      
+    } finally {
+      setIsVoting(false)
     }
-    
-  } catch (err) {
-    console.error('투표 실패:', err)
-    
-    // 실패 시 이전 상태로 롤백
-    setDiscussion(prev => prev ? {
-      ...prev,
-      voteCounts: previousCounts,
-      userVote: previousVote
-    } : null)
-    
-    setError('투표에 실패했습니다.')
-    
-  } finally {
-    setIsVoting(false)
   }
-}
 
-// 투표 수 계산 함수들 (렌더링 부분에서 사용)
-const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => {
-  const totalVotes = (voteCounts?.agree || 0) + (voteCounts?.disagree || 0)
-  const agreeRate = totalVotes > 0 ? Math.round(((voteCounts?.agree || 0) / totalVotes) * 100) : 0
-  const disagreeRate = totalVotes > 0 ? Math.round(((voteCounts?.disagree || 0) / totalVotes) * 100) : 0
-  
-  return { totalVotes, agreeRate, disagreeRate }
-}
+  // 투표 수 계산 함수들 (렌더링 부분에서 사용)
+  const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => {
+    const totalVotes = (voteCounts?.agree || 0) + (voteCounts?.disagree || 0)
+    const agreeRate = totalVotes > 0 ? Math.round(((voteCounts?.agree || 0) / totalVotes) * 100) : 0
+    const disagreeRate = totalVotes > 0 ? Math.round(((voteCounts?.disagree || 0) / totalVotes) * 100) : 0
+    
+    return { totalVotes, agreeRate, disagreeRate }
+  }
 
-// 사용 예시:
-// const { totalVotes, agreeRate, disagreeRate } = calculateVoteStats(discussion.voteCounts)
-
-  // 댓글 작성 처리 - 에러 핸들링 강화
+  // 로컬 댓글 작성 처리 (API 호출 제거)
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !discussion || isSubmitting) return
     
@@ -315,25 +312,21 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
         }
       }
 
-      // API 호출을 위한 데이터 준비
-      const commentData = {
-        nickname: referenceNickname || "익명",
+      // 새 댓글 생성 (로컬)
+      const newCommentData: Comment = {
+        id: Date.now(), // 간단한 ID 생성
+        author: referenceNickname || "익명",
+        avatar: (referenceNickname || "익명").charAt(0).toUpperCase(),
         content: newComment,
         stance: commentStance,
-        references
+        likes: 0,
+        createdAt: new Date().toISOString(),
+        references,
+        isLiked: false
       }
       
-      // 댓글 작성 API 호출
-      const newCommentResponse = await api.createComment(resolvedParams.id, commentData)
-      
-      // 응답 검증
-      if (!newCommentResponse) {
-        throw new Error('댓글 작성에 실패했습니다.')
-      }
-      
-      // 댓글 목록 다시 불러오기
-      const updatedComments = await api.getComments(resolvedParams.id)
-      setComments(updatedComments)
+      // 댓글 목록에 추가
+      setComments(prev => [...prev, newCommentData])
       
       // 폼 초기화
       setNewComment("")
@@ -344,30 +337,18 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
       
     } catch (err) {
       console.error('댓글 작성 실패:', err)
-      
-      let errorMessage = '댓글 작성에 실패했습니다.'
-      
-      if (err instanceof SyntaxError && err.message.includes('JSON')) {
-        errorMessage = '서버 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.'
-      } else if (err instanceof Error) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
+      setError('댓글 작성에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // 댓글 좋아요 처리 - 에러 핸들링 강화
+  // 댓글 좋아요 처리 (로컬)
   const handleCommentLike = async (commentId: number) => {
     try {
       setError(null)
       
-      // 낙관적 업데이트를 위한 이전 상태 저장
-      const previousComments = [...comments]
-      
-      // 로컬 상태 업데이트 (낙관적 업데이트)
+      // 로컬 상태 업데이트
       setComments(prev => prev.map(comment => 
         comment.id === commentId 
           ? { 
@@ -378,45 +359,9 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
           : comment
       ))
       
-      // API 호출
-      const result = await api.toggleCommentLike(commentId)
-      
-      // API 응답에 따른 상태 동기화 (필요시)
-      if (result && typeof result === 'object' && 'likes' in result) {
-        setComments(prev => prev.map(comment => 
-          comment.id === commentId 
-            ? { 
-                ...comment, 
-                likes: result.likes,
-                isLiked: result.isLiked
-              }
-            : comment
-        ))
-      }
-      
     } catch (err) {
       console.error('좋아요 처리 실패:', err)
-      
-      // 에러 발생 시 이전 상태로 롤백
-      setComments(prev => prev.map(comment => 
-        comment.id === commentId 
-          ? { 
-              ...comment, 
-              likes: comment.isLiked ? comment.likes + 1 : comment.likes - 1,
-              isLiked: !comment.isLiked
-            }
-          : comment
-      ))
-      
-      let errorMessage = '좋아요 처리에 실패했습니다.'
-      
-      if (err instanceof SyntaxError && err.message.includes('JSON')) {
-        errorMessage = '서버 응답 형식이 올바르지 않습니다.'
-      } else if (err instanceof Error) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
+      setError('좋아요 처리에 실패했습니다.')
     }
   }
 
@@ -427,20 +372,6 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-wine-600 mx-auto mb-4"></div>
           <p className="text-wine-600">토론을 불러오는 중...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // 에러 상태
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-wine-50 to-brick-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()} variant="outline">
-            다시 시도
-          </Button>
         </div>
       </div>
     )
@@ -520,7 +451,7 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
               <Button
                 variant={discussion.userVote === "agree" ? "default" : "outline"}
                 className={`flex-1 ${discussion.userVote === "agree" ? "bg-green-600 hover:bg-green-700" : "border-green-300 text-green-700 hover:bg-green-50"}`}
-                onClick={() => handleVote("agree")}
+                onClick={() => handleVoteWithOptimisticUpdate("agree")}
                 disabled={isVoting}
               >
                 <ThumbsUp className="w-4 h-4 mr-2" />
@@ -529,7 +460,7 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
               <Button
                 variant={discussion.userVote === "disagree" ? "default" : "outline"}
                 className={`flex-1 ${discussion.userVote === "disagree" ? "bg-red-600 hover:bg-red-700" : "border-red-300 text-red-700 hover:bg-red-50"}`}
-                onClick={() => handleVote("disagree")}
+                onClick={() => handleVoteWithOptimisticUpdate("disagree")}
                 disabled={isVoting}
               >
                 <ThumbsDown className="w-4 h-4 mr-2" />
@@ -567,7 +498,7 @@ const calculateVoteStats = (voteCounts: { agree: number; disagree: number }) => 
             />
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input 
+                <Input
                   placeholder="닉네임" 
                   value={referenceNickname} 
                   onChange={(e) => setReferenceNickname(e.target.value)}
