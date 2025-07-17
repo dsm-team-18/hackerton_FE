@@ -143,9 +143,9 @@ export default function DiscussionPage({params}: { params: Promise<{ id: string 
             }
 
             // 안전한 데이터 추출
-            const voteCounts = result.result.votes.agree + result.votes.disagree
-            const agreeCount = typeof voteCounts.agree === 'number' ? voteCounts.agree : 0
-            const disagreeCount = typeof voteCounts.disagree === 'number' ? voteCounts.disagree : 0
+            const voteCounts = result.votes.agree + result.votes.disagree
+            const agreeCount = typeof result.votes.agree === 'number' ? result.votes.agree : 0
+            const disagreeCount = typeof result.votes.disagree === 'number' ? result.votes.disagree : 0
             const userVote = ['agree', 'disagree'].includes(result.userVote) ? result.userVote : vote
 
             console.log('추출된 데이터:', {agreeCount, disagreeCount, userVote})
@@ -252,7 +252,7 @@ export default function DiscussionPage({params}: { params: Promise<{ id: string 
             const result = await api.voteDiscussion(resolvedParams.id, vote)
 
             // 서버 응답으로 동기화 (성공 시)
-            if (result && result.result.votes.agree + result.votes.disagree) {
+            if (result && result.votes.agree + result.votes.disagree) {
                 setDiscussion(prev => prev ? {
                     ...prev,
                     voteCounts: {
