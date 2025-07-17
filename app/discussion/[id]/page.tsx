@@ -76,8 +76,8 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
         const initialDiscussionData = {
           ...discussionData,
           voteCounts: {
-            agree: 60,
-            disagree: 40
+            agree: discussionData.votes.agree,
+            disagree: discussionData.votes.disagree
           }
         }
         
