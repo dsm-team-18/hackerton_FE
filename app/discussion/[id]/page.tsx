@@ -497,26 +497,26 @@ export default function DiscussionPage({ params }: { params: Promise<{ id: strin
               disabled={isSubmitting}
             />
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  placeholder="닉네임" 
-                  value={referenceNickname} 
+              <Input
+                  placeholder="닉네임"
+                  value={referenceNickname}
                   onChange={(e) => setReferenceNickname(e.target.value)}
                   disabled={isSubmitting}
-                />
-                <Input 
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
                   placeholder="참고 자료 제목" 
                   value={referenceTitle} 
                   onChange={(e) => setReferenceTitle(e.target.value)}
                   disabled={isSubmitting}
                 />
+                <Input
+                    placeholder="참고 자료 URL"
+                    value={referenceUrl}
+                    onChange={(e) => setReferenceUrl(e.target.value)}
+                    disabled={isSubmitting}
+                />
               </div>
-              <Input 
-                placeholder="참고 자료 URL" 
-                value={referenceUrl} 
-                onChange={(e) => setReferenceUrl(e.target.value)}
-                disabled={isSubmitting}
-              />
             </div>
             <Button 
               onClick={handleSubmitComment} 
